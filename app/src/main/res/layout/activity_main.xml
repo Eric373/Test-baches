@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PASO 2/3: EVIDENCIA"
+            android:textAlignment="center"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="24dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="24dp" android:layout_height="24dp"
+                app:cardBackgroundColor="#1976D2" app:cardCornerRadius="12dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="✓"
+                    android:textColor="#FFF"
+                    android:gravity="center"
+                    android:textStyle="bold"/>
+            </com.google.android.material.card.MaterialCardView>
+
+            <View android:layout_width="40dp" android:layout_height="2dp" android:background="#1976D2" android:layout_gravity="center_vertical" android:layout_marginHorizontal="4dp"/>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="24dp" android:layout_height="24dp"
+                app:cardBackgroundColor="#FFFFFF" app:cardCornerRadius="12dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="2"
+                    android:textColor="#121212"
+                    android:gravity="center"
+                    android:textStyle="bold"/>
+            </com.google.android.material.card.MaterialCardView>
+
+            <View android:layout_width="40dp" android:layout_height="2dp" android:background="#333333" android:layout_gravity="center_vertical" android:layout_marginHorizontal="4dp"/>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="24dp" android:layout_height="24dp"
+                app:cardBackgroundColor="#2A2A2A" app:cardCornerRadius="12dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="3"
+                    android:textColor="#555555"
+                    android:gravity="center"/>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#202020"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="#333333"
+            app:strokeWidth="1dp">
+            <ImageView
+                android:id="@+id/imgVistaPrevia"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="#2A2A2A" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <ImageButton
+                android:layout_width="45dp" android:layout_height="45dp"
+                android:src="@android:drawable/ic_menu_mylocation"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#A0A0A0" />
+
+            <ImageButton
+                android:id="@+id/btnTomarFoto"
+                android:layout_width="64dp" android:layout_height="64dp"
+                android:layout_marginHorizontal="24dp"
+                android:src="@android:drawable/ic_menu_camera"
+                android:background="@drawable/circular_button_background"
+                app:tint="#121212" />
+
+            <ImageButton
+                android:layout_width="45dp" android:layout_height="45dp"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#A0A0A0" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Descripción (Opcional)"
+            android:textColor="#E0E0E0"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundColor="#202020"
+            app:hintTextColor="#1976D2"
+            app:placeholderText="Ej: Bache profundo frente a la tienda">
+            <com.google.android.material.textfield.TextInputEditText
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Categoría"
+            android:textColor="#E0E0E0"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#202020"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="#333333"
+            app:strokeWidth="1dp">
+            <Spinner
+                android:id="@+id/spinnerCategoria"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="16dp"
+                android:backgroundTint="#A0A0A0" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/txtCoordenadas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GPS: Esperando satélite..."
+            android:textAlignment="center"
+            android:textColor="#888888"
+            android:textSize="14sp"
+            android:layout_marginBottom="32dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEnviar"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginBottom="16dp"
+            android:text="FINALIZAR REPORTE"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="#4CAF50"
+            app:cornerRadius="30dp"
+            android:enabled="false" />
+
+    </LinearLayout>
+</ScrollView>
