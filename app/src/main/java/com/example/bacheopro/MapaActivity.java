@@ -5,12 +5,14 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-
+import androidx.core.content.ContextCompat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -18,79 +20,73 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 public class MapaActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private Button btnIrAReporte, btnIrAHistorial;
-    private GoogleMap miMapa;
+    private GoogleMap mMap;
+    private FusedLocationProviderClient fusedLocationClient;
 
-    // Herramienta para leer el GPS del teléfono
-    private FusedLocationProviderClient clienteUbicacion;
+    // Lanzador para pedir permiso de GPS si no lo tiene
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    obtenerUbicacionYMostrarMapa();
+                } else {
+                    Toast.makeText(this, "Se requiere ubicación para mostrar el mapa", Toast.LENGTH_LONG).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mapa);
 
-        btnIrAReporte = findViewById(R.id.btnIrAReporte);
-        btnIrAHistorial = findViewById(R.id.btnIrAHistorial);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        // Inicializar el lector de GPS
-        clienteUbicacion = LocationServices.getFusedLocationProviderClient(this);
+        Button btnContinuar = findViewById(R.id.btnContinuarEvidencia);
+        btnContinuar.setOnClickListener(v -> {
+            Intent intent = new Intent(MapaActivity.this, MainActivity.class);
+            startActivity(intent);
+        });
 
-        // Cargar el fragmento del mapa
+        // Vincular el fragmento del mapa
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.mapaReal);
+                .findFragmentById(R.id.map);
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
-
-        btnIrAReporte.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MapaActivity.this, MainActivity.class);
-                startActivity(intent);
-            }
-        });
-
-        btnIrAHistorial.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MapaActivity.this, HistorialActivity.class);
-                startActivity(intent);
-            }
-        });
     }
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
-        miMapa = googleMap;
-        miMapa.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mMap = googleMap;
 
-        // 1. VERIFICAR PERMISOS DE GPS
+        // Verificar si tenemos permiso de ubicación antes de mostrar el punto azul
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            obtenerUbicacionYMostrarMapa();
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+    }
+
+    private void obtenerUbicacionYMostrarMapa() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Si no hay permisos, pedirlos
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
             return;
         }
 
-        // 2. ACTIVAR EL PUNTO AZUL DE "MI UBICACIÓN" EN EL MAPA
-        miMapa.setMyLocationEnabled(true);
+        // Habilita el punto azul de "Mi Ubicación" y los botones de zoom
+        mMap.setMyLocationEnabled(true);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        // 3. BUSCAR LA UBICACIÓN EXACTA Y MOVER LA CÁMARA AHÍ
-        clienteUbicacion.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    // Si encontró el GPS, hacer zoom en esa calle (Nivel de zoom 17f)
-                    LatLng miUbicacionExacta = new LatLng(location.getLatitude(), location.getLongitude());
-                    miMapa.moveCamera(CameraUpdateFactory.newLatLngZoom(miUbicacionExacta, 17f));
-                } else {
-                    // Si el GPS tarda en reaccionar, poner Ixtapaluca por defecto temporalmente
-                    LatLng ubicacionDefecto = new LatLng(19.316, -98.883);
-                    miMapa.moveCamera(CameraUpdateFactory.newLatLngZoom(ubicacionDefecto, 13f));
-                }
+        // Obtiene la ubicación actual y mueve la cámara hacia ahí
+        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
+            if (location != null) {
+                LatLng miUbicacion = new LatLng(location.getLatitude(), location.getLongitude());
+                mMap.addMarker(new MarkerOptions().position(miUbicacion).title("Ubicación actual"));
+
+                // Mueve la cámara con una animación fluida (17f es un buen nivel de zoom para ver calles)
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(miUbicacion, 17f));
             }
         });
     }

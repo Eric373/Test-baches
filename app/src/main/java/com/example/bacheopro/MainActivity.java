@@ -1,153 +1,299 @@
 package com.example.bacheopro;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Environment;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.location.Location;
-import android.os.Bundle;
-import android.provider.MediaStore;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
-
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
-
-import java.util.ArrayList;
+import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import Dba.DatabaseHelper;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ImageButton btnTomarFoto;
-    private Button btnEnviar;
-    private ImageView imgVistaPrevia;
-    private TextView txtCoordenadas;
+    private PreviewView viewFinder;
+    private ImageView ivPhotoPreview;
+    private LinearLayout layoutPreviewActions;
+    private ImageButton btnTakePhoto;
+    private Button btnRetake, btnConfirmPhoto;
 
-    private static final int PERMISSION_REQUEST_CODE = 100;
-    private ActivityResultLauncher<Intent> cameraLauncher;
+    private ImageCapture imageCapture;
+    private String rutaFotoActual = null;
+    private boolean fotoConfirmada = false;
 
-    private FusedLocationProviderClient clienteUbicacion;
+    private TextView tvCoordenadas;
+    private EditText etDescripcion;
+    private Spinner spCategoria;
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private double latitudActual = 19.32266;
+    private double longitudActual = -98.91540;
+
+    private final ActivityResultLauncher<String[]> requestPermissionsLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                Boolean cameraGranted = result.getOrDefault(Manifest.permission.CAMERA, false);
+                Boolean locationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
+
+                if (cameraGranted != null && cameraGranted) {
+                    iniciarCamara();
+                } else {
+                    Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show();
+                }
+
+                if (locationGranted != null && locationGranted) {
+                    obtenerUbicacionGPS();
+                } else {
+                    Toast.makeText(this, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        btnTomarFoto = findViewById(R.id.btnTomarFoto);
-        btnEnviar = findViewById(R.id.btnEnviar);
-        imgVistaPrevia = findViewById(R.id.imgVistaPrevia);
-        txtCoordenadas = findViewById(R.id.txtCoordenadas);
+        viewFinder = findViewById(R.id.viewFinder);
+        spCategoria = findViewById(R.id.sp_categoria);
+        etDescripcion = findViewById(R.id.et_descripcion);
+        Button btnFinalizarReporte = findViewById(R.id.btnFinalizarReporte);
+        btnTakePhoto = findViewById(R.id.btn_take_photo);
+        tvCoordenadas = findViewById(R.id.tv_coordenadas);
 
-        clienteUbicacion = LocationServices.getFusedLocationProviderClient(this);
+        ivPhotoPreview = findViewById(R.id.iv_photo_preview);
+        layoutPreviewActions = findViewById(R.id.layout_preview_actions);
+        btnRetake = findViewById(R.id.btn_retake);
+        btnConfirmPhoto = findViewById(R.id.btn_confirm_photo);
 
-        // Configurar qué pasa cuando regresamos de la cámara
-        cameraLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        Bundle extras = result.getData().getExtras();
-                        Bitmap imageBitmap = (Bitmap) extras.get("data");
-                        imgVistaPrevia.setImageBitmap(imageBitmap);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-                        btnEnviar.setEnabled(true);
-
-                        obtenerCoordenadasReales();
-                    }
-                }
-        );
-
-        btnTomarFoto.setOnClickListener(new View.OnClickListener() {
+        String[] categorias = {"Selecciona una categoría", "Bache profundo", "Socavón", "Grieta extensa", "Falta de tapa/coladera"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, categorias) {
             @Override
-            public void onClick(View v) {
-                if (checkAndRequestPermissions()) {
-                    openCamera();
-                }
+            public View getView(int position, View convertView, ViewGroup parent) {
+                TextView tv = (TextView) super.getView(position, convertView, parent);
+                tv.setTextColor(android.graphics.Color.WHITE);
+                tv.setTextSize(16f);
+                return tv;
             }
-        });
 
-        btnEnviar.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "¡Evidencia guardada temporalmente!", Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
-                startActivity(intent);
-                finish();
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                TextView tv = (TextView) super.getDropDownView(position, convertView, parent);
+                tv.setTextColor(android.graphics.Color.WHITE);
+                tv.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
+                tv.setPadding(40, 40, 40, 40);
+                return tv;
             }
-        });
-    }
-
-    private void openCamera() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        cameraLauncher.launch(takePictureIntent);
-    }
-
-    // Método para extraer latitud y longitud
-    @SuppressLint("MissingPermission")
-    private void obtenerCoordenadasReales() {
-        txtCoordenadas.setText("GPS: Calculando posición...");
-
-        // Como ya pedimos permisos antes de abrir la cámara, podemos leer el GPS
-        clienteUbicacion.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    double latitud = location.getLatitude();
-                    double longitud = location.getLongitude();
-
-                    // Formatear a 5 decimales para que el texto no sea gigante
-                    String textoGps = String.format("Coordenadas: %.5f, %.5f", latitud, longitud);
-                    txtCoordenadas.setText(textoGps);
-                    txtCoordenadas.setTextColor(android.graphics.Color.parseColor("#4CAF50")); // Cambia a verde
-                } else {
-                    txtCoordenadas.setText("GPS: No se pudo obtener señal.");
-                    txtCoordenadas.setTextColor(android.graphics.Color.parseColor("#F44336")); // Cambia a rojo
-                }
-            }
-        });
-    }
-
-    private boolean checkAndRequestPermissions() {
-        String[] permissions = {
-                Manifest.permission.CAMERA,
-                Manifest.permission.ACCESS_FINE_LOCATION
         };
+        spCategoria.setAdapter(adapter);
 
-        List<String> listPermissionsNeeded = new ArrayList<>();
-        for (String perm : permissions) {
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                listPermissionsNeeded.add(perm);
-            }
-        }
+        revisarPermisos();
 
-        if (!listPermissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-            return false;
-        }
-        return true;
+        btnTakePhoto.setOnClickListener(v -> tomarFoto());
+        btnRetake.setOnClickListener(v -> resetCamara());
+        btnConfirmPhoto.setOnClickListener(v -> confirmarFoto());
+        btnFinalizarReporte.setOnClickListener(v -> finalizarFlujoReporte());
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                openCamera();
-            } else {
-                Toast.makeText(this, "Se requieren permisos de Cámara y GPS para reportar.", Toast.LENGTH_SHORT).show();
+    private void revisarPermisos() {
+        String[] permisos = {Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION};
+        boolean todosOtorgados = true;
+
+        for (String permiso : permisos) {
+            if (ContextCompat.checkSelfPermission(this, permiso) != PackageManager.PERMISSION_GRANTED) {
+                todosOtorgados = false;
+                break;
             }
         }
+
+        if (todosOtorgados) {
+            iniciarCamara();
+            obtenerUbicacionGPS();
+        } else {
+            requestPermissionsLauncher.launch(permisos);
+        }
+    }
+
+    private void obtenerUbicacionGPS() {
+        try {
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(this, location -> {
+                        if (location != null) {
+                            latitudActual = location.getLatitude();
+                            longitudActual = location.getLongitude();
+                            obtenerDireccion(latitudActual, longitudActual);
+                        } else {
+                            tvCoordenadas.setText("📍 Ubicación no disponible");
+                        }
+                    });
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void obtenerDireccion(double lat, double lon) {
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> direcciones = geocoder.getFromLocation(lat, lon, 1);
+            if (direcciones != null && !direcciones.isEmpty()) {
+                Address direccion = direcciones.get(0);
+                String calle = direccion.getThoroughfare();
+                String numero = direccion.getSubThoroughfare();
+                String colonia = direccion.getSubLocality();
+
+                StringBuilder direccionCompleta = new StringBuilder("📍 ");
+                if (calle != null) direccionCompleta.append(calle).append(" ");
+                if (numero != null) direccionCompleta.append(numero).append(", ");
+                if (colonia != null) direccionCompleta.append(colonia);
+
+                if (direccionCompleta.toString().trim().equals("📍")) {
+                    direccionCompleta = new StringBuilder("📍 ").append(direccion.getAddressLine(0));
+                }
+                tvCoordenadas.setText(direccionCompleta.toString());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            tvCoordenadas.setText("📍 " + lat + ", " + lon);
+        }
+    }
+
+    private void iniciarCamara() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
+
+                imageCapture = new ImageCapture.Builder().build();
+                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+
+                cameraProvider.unbindAll();
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void tomarFoto() {
+        if (imageCapture == null) return;
+
+        File photoFile = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "Bache_" + System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+
+        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this), new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                rutaFotoActual = photoFile.getAbsolutePath();
+                mostrarVistaPrevia(photoFile);
+            }
+
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                Toast.makeText(MainActivity.this, "Error al capturar evidencia", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void mostrarVistaPrevia(File photoFile) {
+        runOnUiThread(() -> {
+            viewFinder.setVisibility(View.GONE);
+            ivPhotoPreview.setImageURI(Uri.fromFile(photoFile));
+            ivPhotoPreview.setVisibility(View.VISIBLE);
+
+            btnTakePhoto.setVisibility(View.GONE);
+            layoutPreviewActions.setVisibility(View.VISIBLE);
+        });
+    }
+
+    private void resetCamara() {
+        runOnUiThread(() -> {
+            if (rutaFotoActual != null) {
+                File file = new File(rutaFotoActual);
+                if (file.exists()) {
+                    file.delete();
+                }
+                rutaFotoActual = null;
+            }
+            fotoConfirmada = false;
+            ivPhotoPreview.setVisibility(View.GONE);
+            viewFinder.setVisibility(View.VISIBLE);
+            layoutPreviewActions.setVisibility(View.GONE);
+            btnTakePhoto.setVisibility(View.VISIBLE);
+        });
+    }
+
+    private void confirmarFoto() {
+        runOnUiThread(() -> {
+            fotoConfirmada = true;
+            layoutPreviewActions.setVisibility(View.GONE);
+            Toast.makeText(MainActivity.this, "Evidencia vinculada", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void finalizarFlujoReporte() {
+        if (rutaFotoActual == null || !fotoConfirmada) {
+            Toast.makeText(MainActivity.this, "Debes capturar y confirmar la foto", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (spCategoria.getSelectedItemPosition() == 0) {
+            Toast.makeText(MainActivity.this, "Selecciona una categoría", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String categoria = spCategoria.getSelectedItem().toString();
+        String descripcion = etDescripcion.getText().toString();
+        String ubicacion = tvCoordenadas.getText().toString();
+        String fechaHoraActual = new SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(new Date());
+
+        DatabaseHelper dbHelper = new DatabaseHelper(this);
+        long id = dbHelper.insertarReporte(categoria, descripcion, ubicacion, rutaFotoActual, fechaHoraActual);
+
+        if (id != -1) {
+            Toast.makeText(this, "Reporte guardado", Toast.LENGTH_SHORT).show();
+        }
+
+        Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
+        intent.putExtra("RUTA_FOTO", rutaFotoActual);
+        intent.putExtra("FECHA_HORA", fechaHoraActual);
+        intent.putExtra("UBICACION", ubicacion);
+
+        startActivity(intent);
+        finish();
     }
 }
