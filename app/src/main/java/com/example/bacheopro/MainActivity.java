@@ -100,11 +100,15 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         String[] categorias = {"Selecciona una categoría", "Bache profundo", "Socavón", "Grieta extensa", "Falta de tapa/coladera"};
+
+        // --- CAMBIO DE COLORES AQUÍ ---
+        // Se cambió de Color.WHITE y #1E1E1E a colores oscuros sobre fondo claro para visibilidad.
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, categorias) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
                 TextView tv = (TextView) super.getView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
+                // Ponemos el texto en un gris muy oscuro (carbón) para que se lea en fondo blanco
+                tv.setTextColor(android.graphics.Color.parseColor("#333333"));
                 tv.setTextSize(16f);
                 return tv;
             }
@@ -112,12 +116,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public View getDropDownView(int position, View convertView, ViewGroup parent) {
                 TextView tv = (TextView) super.getDropDownView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
-                tv.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
+                // Ponemos el texto en un gris muy oscuro (carbón) para que se lea en la lista
+                tv.setTextColor(android.graphics.Color.parseColor("#333333"));
+                // Ponemos el fondo de la lista desplegable en un gris muy claro
+                tv.setBackgroundColor(android.graphics.Color.parseColor("#F8F9FA"));
                 tv.setPadding(40, 40, 40, 40);
                 return tv;
             }
         };
+        // ------------------------------
+
         spCategoria.setAdapter(adapter);
 
         revisarPermisos();

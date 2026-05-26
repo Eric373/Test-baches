@@ -23,7 +23,7 @@ public class SplashActivity extends AppCompatActivity {
             @Override
             public void run() {
                 // Iniciamos la actividad principal
-                Intent intent = new Intent(SplashActivity.this, MapaActivity.class);
+                Intent intent = new Intent(SplashActivity.this, LoginActivity.class);
                 startActivity(intent);
                 // Cerramos la actividad de carga
                 finish();
