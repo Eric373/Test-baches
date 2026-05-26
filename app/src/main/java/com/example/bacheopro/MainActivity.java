@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import Dba.DatabaseHelper;
+import Dba.SyncManager;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -127,6 +128,29 @@ public class MainActivity extends AppCompatActivity {
         btnConfirmPhoto.setOnClickListener(v -> confirmarFoto());
         btnFinalizarReporte.setOnClickListener(v -> finalizarFlujoReporte());
     }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        SyncManager sync = new SyncManager(this);
+        sync.sincronizarPendientes(new SyncManager.SyncCallback() {
+            @Override
+            public void onCompletado(int subidos, int errores) {
+                if (subidos > 0) {
+                    Toast.makeText(MainActivity.this,
+                            subidos + " reportes sincronizados ✓",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+            @Override
+            public void onSinInternet() {
+                // silencioso — no molestes al usuario si no hay internet
+            }
+        });
+    }
+
 
     private void revisarPermisos() {
         String[] permisos = {Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION};
@@ -267,33 +291,46 @@ public class MainActivity extends AppCompatActivity {
 
     private void finalizarFlujoReporte() {
         if (rutaFotoActual == null || !fotoConfirmada) {
-            Toast.makeText(MainActivity.this, "Debes capturar y confirmar la foto", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Debes capturar y confirmar la foto", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (spCategoria.getSelectedItemPosition() == 0) {
-            Toast.makeText(MainActivity.this, "Selecciona una categoría", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Selecciona una categoría", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        String categoria = spCategoria.getSelectedItem().toString();
-        String descripcion = etDescripcion.getText().toString();
-        String ubicacion = tvCoordenadas.getText().toString();
-        String fechaHoraActual = new SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(new Date());
+        String categoria       = spCategoria.getSelectedItem().toString();
+        String descripcion     = etDescripcion.getText().toString();
+        String ubicacionTexto  = tvCoordenadas.getText().toString(); // "📍 Ricardo Calva 11..."
+        String fechaHoraActual = new SimpleDateFormat("dd MMM yyyy, HH:mm",
+                Locale.getDefault()).format(new Date());
 
+        // ✅ Ahora guardamos lat/lng numéricos + texto de dirección
         DatabaseHelper dbHelper = new DatabaseHelper(this);
-        long id = dbHelper.insertarReporte(categoria, descripcion, ubicacion, rutaFotoActual, fechaHoraActual);
+        long id = dbHelper.insertarReporte(
+                categoria,
+                descripcion,
+                ubicacionTexto,   // dirección legible para mostrar en historial
+                latitudActual,    // 19.32266  ← variable que ya tienes en MainActivity
+                longitudActual,   // -98.91540 ← variable que ya tienes en MainActivity
+                rutaFotoActual,
+                fechaHoraActual
+        );
 
         if (id != -1) {
             Toast.makeText(this, "Reporte guardado", Toast.LENGTH_SHORT).show();
+
+            // Intentar sincronizar inmediatamente si hay internet
+            SyncManager sync = new SyncManager(this);
+            sync.sincronizarPendientes();
         }
 
-        Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
-        intent.putExtra("RUTA_FOTO", rutaFotoActual);
+        Intent intent = new Intent(this, HistorialActivity.class);
+        intent.putExtra("RUTA_FOTO",  rutaFotoActual);
         intent.putExtra("FECHA_HORA", fechaHoraActual);
-        intent.putExtra("UBICACION", ubicacion);
-
+        intent.putExtra("UBICACION",  ubicacionTexto);
         startActivity(intent);
         finish();
     }
+
 }
